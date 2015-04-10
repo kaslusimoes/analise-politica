@@ -1,5 +1,7 @@
-
-@everywhere function monteCarlo(ρ::Float64, β::Float64, ε::Float64, config::Dict{UTF8String, Real})
+@everywhere function monteCarlo(ρ::Float64,
+                                β::Float64,
+                                ε::Float64,
+                                config::Dict{UTF8String, Real})
     N0 = config["N"]
     D  = config["D"]
     dw = config["dw"]
@@ -51,44 +53,78 @@
     power[g+1:2g]   = pow2
     power[2g+1:end] = 1
 
-    # # this function is used to compute the order parameters
-    # # through the simulation
-    # function measure():
-    #       h = z.dot(w.T)/norm/norm
-    #       m = h.mean()
-    #       hp = h[h>0]
-    #       hn = h[h<0]
-    #       np, nn = hp.shape[0], hn.shape[0]
-    #       ms = (np*hp.mean() - nn*hn.mean())/(np+nn)
-    #       q = (A*h*h[:,None]).mean()
-    #       h1 = h[:group_size]
-    #       h2 = h[group_size:2*group_size]
-    #       h3 = h[2*group_size:]
-    #       m1 = h1.mean()
-    #       m2 = h2.mean()
-    #       m3 = h3.mean()
-    #       q1 = (h1*h1[:,None]).mean()
-    #       q2 = (h2*h2[:,None]).mean()
-    #       q3 = (h3*h3[:,None]).mean()
-    #       q13 = (h1*h3[:,None]).mean()
-    #       q23 = (h2*h3[:,None]).mean()
-    #       qs = (q13 - q23)/2
-    #
-    #       trace = dict(
-    #           m=m,
-    #           q=q,
-    #           m_1=m1,
-    #           m_2=m2,
-    #           m_3=m3,
-    #           m_s=ms,
-    #           q_1=q1,
-    #           q_2=q2,
-    #           q_3=q3,
-    #           q_s=qs
-    #       )
-    #       return trace
-    #
-    #
-    #       # initial measurement
-    #       trace = measure()
+    # this function is used to compute the order parameters
+    # through the simulation
+    function measure():
+        h = z'w' / norm^2
+        m = mean(h)
+
+        hp = h[h .> 0]
+        hn = h[h .< 0]
+
+        np, nn = size(hp, 1), size(hn, 1)
+        ms = (np*mean(hp) - nn*mean(hn))/(np+nn)
+
+        q = mean(A*h*h[:,None])
+        h1 = h[1:group_size]
+        h2 = h[group_size+1:2group_size]
+        h3 = h[2group_size+1:end]
+        m1, m2, m3 = mean(h1), mean(h2), mean(h3)
+        q1, q2, q3 = mean(h1*h1'), mean(h2*h2'), mean(h3*h3')
+        q13, q23 = mean(h1*h3'), mean(h2*h3')
+        qs = (q13 - q23)/2
+
+        return Dict("m"    => m,
+                    "q"    => q,
+                    "m_1"  => m1,
+                    "m_2"  => m2,
+                    "m_3"  => m3,
+                    "m_s"  => ms,
+                    "q>_1" => q1,
+                    "q_2"  => q2,
+                    "q_3"  => q3,
+                    "q_s"  => qs)
+    end
+
+    # initial measurement
+    trace = measure()
+
+    # agent interaction potential
+    function energy(hi::Float64, hj::Float64):
+        X  = hi*sign(hj)/(Q*γ)
+        Ep = -γ*γ*log(ε + (1-2ε)erfc(-X/sqrt(2))/2)
+        return Ep
+    end
+
+    # main MC loop 1st gov
+    for t in 1:sweeps*N
+        # copy it here
+    end
+
+    # invert power to simulate new government
+    Power = zeros(N)
+    Power[1   :g  ] = pow2
+    Power[g+1 :2g ] = pow1
+    Power[2g+1:end] = 1
+
+    # main MC loop 2st gov
+    for t in 1:sweeps*N
+        # copy it here
+    end
+
+    # formating the acquired data:
+    # result is dict of dicts
+    # each dict inside result has the form
+    #   {(eps, rho, beta): Dataframe}
+    # and the Dataframes are special tables that make accessing,
+    # reading and saving the data easier.
+
+    # still needing to fix all this code; check if it's correct
+    dfs, dfA, dfw = DataFrame(trace), DataFrame(A), DataFrame(w)
+    p = (eps, rho, beta)
+    stat_dict = Dict(p => dfs)
+    A_dict    = Dict(p => dfA)
+    w_dict    = Dict(p => dfw)
+
+    return Dict("stat" => stat_dict, "rep" => A_dict, "agt" => w_dict)
 end
