@@ -109,7 +109,15 @@
 
     # main MC loop 2st gov
     for t in 1:sweeps*N
-        # copy it here
+        # pick an agent uniformly in {1,..,N}
+        i = sample(1:N)
+        # compute the probabilities of agent i to interact with each of
+        # his neighbors through the reputation matrix
+        pij = normalize(A, 2)
+        # and pick a neighbor with the computed probability
+        j = sample(pij)
+
+
     end
 
     # formating the acquired data:

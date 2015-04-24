@@ -1,3 +1,5 @@
+normalize(A::Array{Float64, 2}, i::Int) = A[i, :] ./ sum(A[i, :])
+
 function parse_commandline()
     s = ArgParseSettings()
 
